@@ -6,19 +6,21 @@ motors <- data.frame("Redline"=c(18730,.71, 134,.7, 347,  .8,  433.75),
 )
 
 nmToInLb <- 8.85074579
+gsToInchPerSecSquared <- 386.09
 
 #All units are inches, pounds, and seconds
-modelThreeStageContinuous <- function(motor, numMotors, gearing, pulleyDiameter, voltage, velEfficiency, torqueEfficiency, 
+modelThreeStageContinuous <- function(motor, numMotors, gearing, pulleyDiameter, robotResistance, velEfficiency, torqueEfficiency, 
                                       staticFriction, carriageWeight, carriageRun, smallStageWeight, smallStageRun, mediumStageWeight,
-                                      mediumStageRun, deltaTime=0.001, startHeight = 0) {
+                                      mediumStageRun, deltaTime=0.001, startHeight = 0, sourceVoltage = 12) {
   motorForce <- motors["Stall Torque (Nm)", motor]*nmToInLb*numMotors*gearing*torqueEfficiency/(pulleyDiameter/2) #pound force
   motorResistance <- 12/motors["Stall Current (Amp)", motor] #ohms
+  voltage = sourceVoltage/(1+numMotors*(robotResistance/motorResistance))
   twelveVoltSpeed <- motors["Free Speed (RPM)", motor]/60/gearing*pi*pulleyDiameter*velEfficiency #Inches/sec
   kV <- 12/twelveVoltSpeed #volts/(inch/sec)
   weights <- c(carriageWeight, carriageWeight + smallStageWeight, carriageWeight + smallStageWeight + mediumStageWeight) #pound mass
   constantForces <- weights+staticFriction #pound force
   constantVoltages <- 12*(constantForces/motorForce) #Volts
-  maxAccels <- motorForce/weights #Inches/sec^2, F = ma -> a = F/m
+  maxAccels <- motorForce/weights*gsToInchPerSecSquared #Inches/sec^2, F = ma -> a = F/m
   kAs <- 12/maxAccels # volts(inch/(sec^2))
   heights <- c(carriageRun, carriageRun+smallStageRun, carriageRun+smallStageRun+mediumStageRun) #feet
   
@@ -48,23 +50,24 @@ modelThreeStageContinuous <- function(motor, numMotors, gearing, pulleyDiameter,
   
   #Load in starting values
   output <- data.frame("time"=0,"pos"=startHeight,"vel"=0, "constantVoltage"=lookupConstantVoltage(startHeight), "velVoltage"=0,
-                       "accelVoltage"=(voltage-lookupConstantVoltage(startHeight)), "accel"=(voltage-lookupConstantVoltage(startHeight))/lookupKa(startHeight))
+                       "accelVoltage"=(voltage-lookupConstantVoltage(startHeight)), "accel"=(voltage-lookupConstantVoltage(startHeight))/lookupKa(startHeight),
+                       "current"=voltage/motorResistance, "voltage"=voltage)
   count <- 1
   
   #Exit if we're at the top, if we're going down, or if it's been a minute
   while(output$pos[count] < heights[3] & output$pos[count] >= 0 & output$time[count] < 60){
+    newVoltage <- sourceVoltage - output$current[count]*numMotors*robotResistance
     newTime <- output$time[count] + deltaTime
     newPos <- output$pos[count] + deltaTime*output$vel[count]
     newVel <- output$vel[count] + deltaTime*output$accel[count]
     newConstantVoltage <- lookupConstantVoltage(newPos)
     newVelVoltage <- kV*newVel
-    newAccelVoltage <- voltage - newConstantVoltage - newVelVoltage
+    newAccelVoltage <- newVoltage - newConstantVoltage - newVelVoltage
     newAccel <- newAccelVoltage/lookupKa(newPos)
+    newCurrent <- abs(newConstantVoltage+newAccelVoltage)/motorResistance
     count <- count+1
-    output[count,] <- c(newTime, newPos, newVel, newConstantVoltage, newVelVoltage, newAccelVoltage, newAccel)
+    output[count,] <- c(newTime, newPos, newVel, newConstantVoltage, newVelVoltage, newAccelVoltage, newAccel, newCurrent ,newVoltage)
   }
-  
-  output$current <- abs((output$constantVoltage + output$accelVoltage)/motorResistance)
   
   if(output$pos[count] < 0){
     print("Not enough torque to move!")
@@ -78,6 +81,11 @@ modelThreeStageContinuous <- function(motor, numMotors, gearing, pulleyDiameter,
   return(output)
 }
 
-output <- modelThreeStageContinuous("Redline", 1, 50, 2.2560, 10.5, 0.9,0.9,10,11.5,23.25,3.484,25.375,4.168,26.875)
+v = 10.5
+output <- modelThreeStageContinuous("Redline", numMotors=2, gearing=20, 2.2560, 0.02, 0.9,0.9,2,11.5,23.25,3.484,25.375,4.168,26.875, sourceVoltage = v)
+plot(output$time, output$pos, xlab="Time (seconds)", ylab="Position (inches)", main="Position over time", t="l")
+plot(output$time, output$vel, xlab="Time (seconds)", ylab="Velocity (inches/sec)", main="Velocity over time", t="l")
+plot(output$time, output$accel, xlab="Time (seconds)", ylab="Acceleration (inches/sec^2)", main="Acceleration over time", ylim=c(min(0,output$accel),max(output$accel)), t="l")
+plot(output$time, v-output$voltage, xlab="Time (seconds)", ylab="Voltage drop (volts)", main="Voltage drop over time", t="l")
 plot(output$time, output$current, xlab="Time (seconds)", ylab="Current (amps)", main="Current draw per motor over time", ylim=c(0,max(output$current)), t="l")
 abline(30,0,col="red")

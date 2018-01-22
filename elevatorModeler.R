@@ -64,9 +64,20 @@ modelThreeStageContinuous <- function(motor, numMotors, gearing, pulleyDiameter,
     output[count,] <- c(newTime, newPos, newVel, newConstantVoltage, newVelVoltage, newAccelVoltage, newAccel)
   }
   
-  plot(output$time, output$accel, t="l")
-  print(paste("Took",round(output$time[length(output$time)], 1-log(deltaTime, 10)),"seconds to go to the top."))
+  output$current <- abs((output$constantVoltage + output$accelVoltage)/motorResistance)
+  
+  if(output$pos[count] < 0){
+    print("Not enough torque to move!")
+  } else {
+    if (output$time[count] >= 60){
+      print("Took over a minute, timed out.")
+    } else {
+      print(paste("Took",round(output$time[length(output$time)], 1-log(deltaTime, 10)),"seconds to go to the top."))
+    }
+  }
   return(output)
 }
 
-output <- modelThreeStageContinuous("Redline", 1, 30, 2.2560, 10.5, 0.9,0.9,10,11.5,23.25,3.484,25.375,4.168,26.875)
+output <- modelThreeStageContinuous("Redline", 1, 50, 2.2560, 10.5, 0.9,0.9,10,11.5,23.25,3.484,25.375,4.168,26.875)
+plot(output$time, output$current, xlab="Time (seconds)", ylab="Current (amps)", main="Current draw per motor over time", ylim=c(0,max(output$current)), t="l")
+abline(30,0,col="red")

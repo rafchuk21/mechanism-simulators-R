@@ -9,13 +9,12 @@
 
 library(shiny)
 
-# Define server logic required to draw a histogram
 shinyServer(function(input, output) {
 
   output$eulerTable <- renderTable({
     returnedTable <- modelThreeStageContinuous(motor=input$motor, numMotors=input$numMotors, gearing=input$gearing, pulleyDiameter=input$pulleyDiameter,
-                              robotResistance=input$robotResistance, velEfficiency=input$velEfficiency, 
-                              torqueEfficiency=input$torqueEfficiency, staticFriction=input$staticFriction, 
+                              robotResistance=input$robotResistance, velEfficiency=input$velEfficiency/100, 
+                              torqueEfficiency=input$torqueEfficiency/100, staticFriction=input$staticFriction, 
                               carriageWeight=input$carriageWeight, carriageRun=input$carriageRun, smallStageWeight=input$smallStageWeight,
                               smallStageRun=input$smallStageRun, mediumStageWeight=input$mediumStageWeight,
                               mediumStageRun=input$mediumStageRun, deltaTime=input$deltaTime, startHeight = input$startHeight,
@@ -23,28 +22,10 @@ shinyServer(function(input, output) {
     return(returnedTable)
   })
   
-  # output$timeToTop <- renderText({
-  #   returnedTable <- modelThreeStageContinuous(motor=input$motor, numMotors=input$numMotors, gearing=input$gearing, pulleyDiameter=input$pulleyDiameter,
-  #                                       robotResistance=input$robotResistance, velEfficiency=input$velEfficiency,
-  #                                       torqueEfficiency=input$torqueEfficiency, staticFriction=input$staticFriction,
-  #                                       carriageWeight=input$carriageWeight, carriageRun=input$carriageRun, smallStageWeight=input$smallStageWeight,
-  #                                       smallStageRun=input$smallStageRun, mediumStageWeight=input$mediumStageWeight,
-  #                                       mediumStageRun=input$mediumStageRun, deltaTime=input$deltaTime, startHeight = input$startHeight,
-  #                                       sourceVoltage = input$sourceVoltage)
-  #   if(returnedTable$pos[length(returnedTable$pos)] < 0){
-  #     return("Not enough torque to move!")
-  #   } else {
-  #     if (returnedTable$time[length(returnedTable$time)] >= 60){
-  #       return("Took over a minute, timed out.")
-  #     } else {
-  #       return(paste("Took",round(returnedTable$time[length(returnedTable$time)], 1-log(input$deltaTime, 10)),"seconds to go to the top."))
-  #     }
-  #   }
-  # })
   output$outputUI <- renderUI({
     returnedTable <- modelThreeStageContinuous(motor=input$motor, numMotors=input$numMotors, gearing=input$gearing, pulleyDiameter=input$pulleyDiameter,
-                                               robotResistance=input$robotResistance, velEfficiency=input$velEfficiency, 
-                                               torqueEfficiency=input$torqueEfficiency, staticFriction=input$staticFriction, 
+                                               robotResistance=input$robotResistance, velEfficiency=input$velEfficiency/100, 
+                                               torqueEfficiency=input$torqueEfficiency/100, staticFriction=input$staticFriction, 
                                                carriageWeight=input$carriageWeight, carriageRun=input$carriageRun, smallStageWeight=input$smallStageWeight,
                                                smallStageRun=input$smallStageRun, mediumStageWeight=input$mediumStageWeight,
                                                mediumStageRun=input$mediumStageRun, deltaTime=input$deltaTime, startHeight = input$startHeight,

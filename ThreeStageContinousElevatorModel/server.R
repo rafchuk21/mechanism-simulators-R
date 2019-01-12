@@ -123,14 +123,5 @@ modelThreeStageContinuous <- function(motor, numMotors, gearing, pulleyDiameter,
     output[count,] <- c(newTime, newPos, newVel, newConstantVoltage, newVelVoltage, newAccelVoltage, newAccel, newCurrent ,newVoltage)
   }
   
-  # if(output$pos[count] < 0){
-  #   print("Not enough torque to move!")
-  # } else {
-  #   if (output$time[count] >= 60){
-  #     print("Took over a minute, timed out.")
-  #   } else {
-  #     print(paste("Took",round(output$time[length(output$time)], 1-log(deltaTime, 10)),"seconds to go to the top."))
-  #   }
-  # }
   return(output)
 }

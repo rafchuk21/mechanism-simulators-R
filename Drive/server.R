@@ -47,6 +47,8 @@ motors <- data.frame("Redline"=c(18730,.71, 134,.7, 347,  .8,  433.75),
                      "BAG"=c(13180,.43, 53, 1.8,149,  .71, 209.86),
                      "CIM"=c(5330, 2.41,131,2.7,337.81,2.82,119.79),
                      "MiniCIM"=c(5840, 1.41,89, 3,  215,   2.16,99.54),
+                     "NEO" = c(5880, 3.36, 166, 1.3, 516, 0.94, 548.9),
+                     "Falcon" = c(6380, 4.69, 257, 1.5, 783, 1.1, 711.8),
                      row.names = c("Free Speed (RPM)","Stall Torque (Nm)","Stall Current (Amp)","Free Current (Amp)","Power (W)","Weight (lb)", "Ratio (W/lb)")
 )
 

@@ -12,7 +12,7 @@ library(shiny)
 shinyServer(function(input, output) {
 
   output$eulerTable <- renderTable({
-    returnedTable <- modelDrive(motor=input$motor, numMotors=input$numMotors, sourceVoltage=input$sourceVoltage, gearing=input$gearing,
+    returnedTable <- model(motor=input$motor, numMotors=input$numMotors, sourceVoltage=input$sourceVoltage, gearing=input$gearing,
                                 wheelDiameter=input$wheelDiameter, robotResistance=input$robotResistance, velEfficiency=input$velEfficiency/100,
                                 torqueEfficiency=input$torqueEfficiency/100, resistiveTorque=input$resistiveTorque, deltaTime=input$deltaTime,
                                 linearSpeed=input$linearSpeed, projMass=input$projMass, wheelMOI=input$wheelMOI)
@@ -22,7 +22,7 @@ shinyServer(function(input, output) {
   })
   
   output$outputUI <- renderUI({
-    returnedTable <- modelDrive(motor=input$motor, numMotors=input$numMotors, sourceVoltage=input$sourceVoltage, gearing=input$gearing,
+    returnedTable <- model(motor=input$motor, numMotors=input$numMotors, sourceVoltage=input$sourceVoltage, gearing=input$gearing,
                                 wheelDiameter=input$wheelDiameter, robotResistance=input$robotResistance, velEfficiency=input$velEfficiency/100,
                                 torqueEfficiency=input$torqueEfficiency/100, resistiveTorque=input$resistiveTorque, deltaTime=input$deltaTime,
                                 linearSpeed=input$linearSpeed, projMass=input$projMass, wheelMOI=input$wheelMOI)
@@ -53,22 +53,35 @@ motors <- data.frame("Redline"=c(18730,.71, 134,.7, 347,  .8,  433.75),
 
 nmToInLb <- 8.85074579
 gsToInchPerSecSquared <- 386.09
-RPMToRadPerSec <- 1/9.549296586
+RPMToRadPerSec <- 2*pi/60
+lbmInSqToKgMSq <- 0.0002926
+ftToM <- 0.3048
+lbToKg <- 0.453592
 timeLimit <- 10
 
-modelDrive <- function(motor, numMotors, sourceVoltage, gearing, wheelDiameter, robotResistance, velEfficiency, 
+model <- function(motor, numMotors, sourceVoltage, gearing, wheelDiameter, robotResistance, velEfficiency, 
                        torqueEfficiency, resistiveTorque, deltaTime, linearSpeed, projMass, wheelMOI) {
-  motorTorque <- motors["Stall Torque (Nm)", motor]*numMotors*gearing*torqueEfficiency * nmToInLb #in*lb
+
+  # Convert wheel diameter from inches to meters
+  wheelDiameter <- wheelDiameter / 12 * ftToM #m
+  # Convert linear speed from ft/s to m/s
+  linearSpeed <- linearSpeed * ftToM #m/s
+  # Convert projectile mass from lbm to kg
+  projMass <- projMass * lbToKg #kg
+  # Convert wheel MOI from lbm*in^2 to kg*m^2
+  wheelMOI <- wheelMOI * lbmInSqToKgMSq # kg*m^2
+  
+  motorTorque <- motors["Stall Torque (Nm)", motor]*numMotors*gearing*torqueEfficiency #N*m
   motorResistance <- 12/motors["Stall Current (Amp)", motor] #ohms
   voltage = sourceVoltage/(1+numMotors*(robotResistance/motorResistance))
   twelveVoltSpeed <- motors["Free Speed (RPM)", motor]/gearing #RPM
   kV <- 12/twelveVoltSpeed #volts/RPM
   constantVoltage <- 0 #Volts
-  maxAngularAccel <- motorTorque / wheelMOI / RPMToRadPerSec# RPM/s
+  maxAngularAccel <- motorTorque / wheelMOI / RPMToRadPerSec #RPM/s^2
   kA <- 12/maxAngularAccel
   
-  # Target angular velocity for flywheels to get linearSpeed
-  targetVel = linearSpeed * 12 / (pi * wheelDiameter) * 60 # RPM
+  # Target angular velocity for flywheel to be at linear speed after ball exits
+  targetVel <- linearSpeed * sqrt(projMass / wheelMOI + 4/wheelDiameter^2) / RPMToRadPerSec # RPM
   
   startVel <- 0
   

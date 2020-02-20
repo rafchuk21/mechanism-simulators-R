@@ -32,10 +32,10 @@ shinyUI(fluidPage(
           fluidRow(
             column(4, numericInput(inputId="velEfficiency", label="Velocity efficiency (%)", value=90, min=0, max=100, step=5)),
             column(4, numericInput(inputId="torqueEfficiency", label="Torque efficiency (%)", value=90, min=0, max=100, step=5)),
-            column(4, numericInput(inputId="resistiveTorque", label="Resistive torque at wheel (inch pounds)", value=0, min=0))
+            column(4, numericInput(inputId="resistiveTorque", label="Resistive torque at wheel (inch pounds)", value=0.1, min=0))
           ),
           fluidRow(
-            column(4, numericInput(inputId="deltaTime", label="Delta time (seconds)", value=0.01, min=0.0001, step=0.001)),
+            column(4, numericInput(inputId="deltaTime", label="Delta time (seconds)", value=0.001, min=0.0001, step=0.001)),
             column(4, numericInput(inputId="setpoint", label="Flywheel Setpoint (RPM)", value=5000, min=0)),
             column(4, numericInput(inputId="projMass", label="Projectile Mass (pound mass)", value=0.3, min=0.01))
           ),
@@ -47,10 +47,11 @@ shinyUI(fluidPage(
           fluidRow(plotOutput("current")),
           fluidRow(plotOutput("vel")),
           fluidRow(plotOutput("accel")),
+          fluidRow(plotOutput("stackedVoltage")),
+          fluidRow(plotOutput("sysVoltage")),
           fluidRow(plotOutput("appVoltage")),
           fluidRow(plotOutput("velVoltage")),
-          fluidRow(plotOutput("accelVoltage")),
-          fluidRow(plotOutput("sysVoltage"))),
+          fluidRow(plotOutput("accelVoltage"))),
         tabPanel("Euler", tableOutput("eulerTable"))
       )
     )

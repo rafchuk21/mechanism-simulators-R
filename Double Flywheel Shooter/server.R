@@ -9,7 +9,6 @@
 
 library(shiny)
 library(ggplot2)
-source("multiplot.R")
 
 shinyServer(function(input, output) {
   
@@ -47,7 +46,7 @@ shinyServer(function(input, output) {
     current <- ggplot(returnedTable, aes(x=time, y=current)) + geom_line() + xlab("Time (s)") + ylab("Current (A)") + ggtitle("Current (A) per Motor vs Time (s)")
     vel <- ggplot(returnedTable, aes(x=time, y=vel)) + geom_line() + xlab("Time (s)") + ylab("Flywheel Speed (RPM)") + ggtitle("Flywheel Speed (RPM) vs Time (s)")
     accel <- ggplot(returnedTable, aes(x=time, y=accel)) + geom_line() + xlab("Time (s)") + ylab("Flywheel Acceleration (RPM/s)") + ggtitle("Flywheel Acceleration (RPM/s) vs Time (s)")
-    volYAxis <- scale_y_continuous(limits = c(0,12), breaks = c(0,3,6,9,12))
+    volYAxis <- volYAxis()
     appVoltage <- ggplot(returnedTable, aes(x=time, y=appVoltage)) + geom_line() + xlab("Time (s)") + ylab("Applied Voltage (V)") + ggtitle("Applied Voltage (V) vs Time (s)") + volYAxis
     velVoltage <- ggplot(returnedTable, aes(x=time, y=velVoltage)) + geom_line() + xlab("Time (s)") + ylab("Velocity Voltage/Back EMF (V)") + ggtitle("Velocity Voltage (V) vs Time (s)") + volYAxis
     accelVoltage <- ggplot(returnedTable, aes(x=time, y=accelVoltage)) + geom_line() + xlab("Time (s)") + ylab("Acceleration Voltage (V)") + ggtitle("Acceleration Voltage (V) vs Time (s)") + volYAxis
@@ -84,6 +83,24 @@ shinyServer(function(input, output) {
     return(ggplots()$sysVoltage)
   })
   
+  output$stackedVoltage <- renderPlot({
+    returnedTable <- results()
+    
+    theme_update(plot.title = element_text(size = (14), face = "bold", hjust = 0.5), axis.title = element_text(size = (12)))
+    count = length(returnedTable[,1])
+    print(returnedTable)
+    print(count)
+    voltData = data.frame("time" = returnedTable$time,
+                          "data" = c(returnedTable$constVoltage, returnedTable$velVoltage, returnedTable$accelVoltage),
+                          "name" = c(rep("Constant Voltage", count), rep("Velocity Voltage", count), rep("Acceleration Voltage", count)))
+    voltData$name <- factor(voltData$name, level=c("Velocity Voltage", "Acceleration Voltage", "Constant Voltage"))
+    voltPlot = ggplot(voltData) + geom_area(aes(x=time, y=data, fill=name)) + 
+      geom_line(data = data.frame("time" = returnedTable$time, "data" = returnedTable$appVoltage), aes(x=time, y=data)) +
+      volYAxis() + xlab("Time (s)") + ylab("Voltage (V)") + ggtitle("Applied Voltage (V) Breakdown vs Time (s)")
+    voltPlot$labels$fill <- "Voltage Breakdown"
+    return(voltPlot)
+  })
+  
 })
 
 motors <- data.frame("Redline"=c(18730,.71, 134,.7, 347,  .8,  433.75),
@@ -118,7 +135,7 @@ model <- function(motor, numMotors, sourceVoltage, gearing, wheelDiameter, robot
   sysVoltage = sourceVoltage/(1+numMotors*(robotResistance/motorResistance))
   twelveVoltSpeed <- motors["Free Speed (RPM)", motor]/gearing #RPM
   kV <- 12/twelveVoltSpeed #volts/RPM
-  constantVoltage <- 12*resistiveTorque/motorTorque #Volts
+  maxConstantVoltage <- 12*resistiveTorque/motorTorque #Volts
   maxAngularAccel <- motorTorque / wheelMOI / RPMToRadPerSec #RPM/s^2
   kA <- 12/maxAngularAccel
   
@@ -130,8 +147,9 @@ model <- function(motor, numMotors, sourceVoltage, gearing, wheelDiameter, robot
   
   startV <- currentLimit(0, 60, startVel, kV, motorResistance)
   
+  constantVoltage = min(startV, maxConstantVoltage)
   #Load in starting values
-  output <- data.frame("time"=0,"vel"=startVel, "velVoltage"=kV*startVel,
+  output <- data.frame("time"=0,"vel"=startVel, "constVoltage" = constantVoltage, "velVoltage"=kV*startVel,
                        "accelVoltage"=(startV-constantVoltage-kV*startVel), "accel"=(startV-constantVoltage-kV*startVel)/kA,
                        "current"=startV/motorResistance, "sysVoltage"=sysVoltage, "appVoltage" = startV)
   count <- 1
@@ -139,8 +157,8 @@ model <- function(motor, numMotors, sourceVoltage, gearing, wheelDiameter, robot
   # Exit if stabilized at target vel or timeLimit is reached
   while(!(output$accel[count] < 0.1 && abs(output$vel[count]-targetVel) < 10) && output$time[count] < timeLimit){
     err <- targetVel - output$vel[count]
-    Vdesired <- currentLimit(err * 0.005 + constantVoltage + kV*output$vel[count], 60, output$vel[count], kV, motorResistance)
-    newData <- step(Vdesired, output, numMotors, constantVoltage, kV, kA, motorResistance, robotResistance, sourceVoltage, deltaTime)
+    Vdesired <- currentLimit(err * 0.005 + maxConstantVoltage + kV*output$vel[count], 60, output$vel[count], kV, motorResistance)
+    newData <- step(Vdesired, output, numMotors, maxConstantVoltage, kV, kA, motorResistance, robotResistance, sourceVoltage, deltaTime)
     count <- count+1
     output[count,] <- newData
   }
@@ -149,8 +167,10 @@ model <- function(motor, numMotors, sourceVoltage, gearing, wheelDiameter, robot
   
   newSysVoltage <- sourceVoltage - output$current[count]*numMotors*robotResistance
   newAppVoltage <- min(12, newSysVoltage)
+  constantVoltage = min(newAppVoltage, maxConstantVoltage)
   newTime <- output$time[count] + deltaTime
   
+  # New flywheel speed found with conservation of energy assuming no slip and ball at rest pre-shot.
   newVel <- output$vel[count]*sqrt(wheelMOI/(projMass*(wheelDiameter/2)^2+wheelMOI))
   
   newVelVoltage <- kV*newVel
@@ -159,13 +179,13 @@ model <- function(motor, numMotors, sourceVoltage, gearing, wheelDiameter, robot
   newCurrent <- abs(constantVoltage+newAccelVoltage)/motorResistance
   
   count <- count + 1
-  output[count,] <- c(newTime, newVel, newVelVoltage, newAccelVoltage, newAccel, newCurrent, newSysVoltage, newAppVoltage)
+  output[count,] <- c(newTime, newVel, min(newAppVoltage, maxConstantVoltage), newVelVoltage, newAccelVoltage, newAccel, newCurrent, newSysVoltage, newAppVoltage)
   
   # Exit if stabilized at target vel or timeLimit is reached
   while(!(output$accel[count] < 0.1 && abs(output$vel[count]-targetVel) < 10) && output$time[count] < timeLimit){
     err <- targetVel - output$vel[count]
-    Vdesired = currentLimit(err * 0.005 + constantVoltage + kV*output$vel[count], 60, output$vel[count], kV, motorResistance)
-    newData <- step(Vdesired, output, numMotors, constantVoltage, kV, kA, motorResistance, robotResistance, sourceVoltage, deltaTime)
+    Vdesired = currentLimit(err * 0.005 + maxConstantVoltage + kV*output$vel[count], 60, output$vel[count], kV, motorResistance)
+    newData <- step(Vdesired, output, numMotors, maxConstantVoltage, kV, kA, motorResistance, robotResistance, sourceVoltage, deltaTime)
     count <- count+1
     output[count,] <- newData
   }
@@ -173,16 +193,17 @@ model <- function(motor, numMotors, sourceVoltage, gearing, wheelDiameter, robot
   return(output)
 }
 
-step <- function(Vin, currVals, numMotors, constantVoltage, kV, kA, motorResistance, robotResistance, sourceVoltage, deltaTime) {
+step <- function(Vin, currVals, numMotors, maxConstantVoltage, kV, kA, motorResistance, robotResistance, sourceVoltage, deltaTime) {
   newSysVoltage <- sourceVoltage - tail(currVals$current, n=1)*numMotors*robotResistance
   newAppVoltage <- min(Vin, newSysVoltage)
+  constantVoltage <- min(maxConstantVoltage, newAppVoltage)
   newTime <- tail(currVals$time, n=1) + deltaTime
   newVel <- tail(currVals$vel, n=1) + deltaTime*tail(currVals$accel, n=1)
   newVelVoltage <- kV*newVel
   newAccelVoltage <- newAppVoltage - constantVoltage - newVelVoltage
   newAccel <- newAccelVoltage/kA
   newCurrent <- abs(constantVoltage+newAccelVoltage)/motorResistance
-  newVals <- c(newTime, newVel, newVelVoltage, newAccelVoltage, newAccel, newCurrent, newSysVoltage, newAppVoltage)
+  newVals <- c(newTime, newVel, constantVoltage, newVelVoltage, newAccelVoltage, newAccel, newCurrent, newSysVoltage, newAppVoltage)
   
   return(newVals)
 }
@@ -195,4 +216,9 @@ currentLimit <- function(desiredVoltage, currentLimit, velocity, kV, motorResist
   
   v <- min(desiredVoltage, currentLimit*motorResistance + kV*velocity)
   return(v)
+}
+
+volYAxis <- function() {
+  axis <- scale_y_continuous(limits = c(0,12), breaks = c(0,3,6,9,12))
+  return (axis)
 }

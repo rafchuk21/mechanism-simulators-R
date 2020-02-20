@@ -21,7 +21,7 @@ shinyUI(fluidPage(
         tabPanel(title="Input",
           fluidRow(column(width=11, p(""), offset=1)), 
           fluidRow(
-            column(4, selectInput(inputId="motor", label="Motor", choices = c("Redline","BAG","CIM","MiniCIM"), selected = "Redline")),
+            column(4, selectInput(inputId="motor", label="Motor", choices = c("Redline","BAG","CIM","MiniCIM", "NEO", "Falcon"), selected = "Redline")),
             column(4, numericInput(inputId="numMotors", label = "Number of motors", value=1, min=1)),
             column(4, numericInput(inputId="sourceVoltage", label="Source voltage (volts)", value=12, min=0, step=0.5))
           ), 

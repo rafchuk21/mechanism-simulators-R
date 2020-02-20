@@ -12,7 +12,7 @@ library(shiny)
 shinyUI(fluidPage(
   
   # Application title
-  titlePanel("Single-Speed Drive Simulator"),
+  titlePanel("Dual Flywheel Simulator"),
     
     # Show a plot of the generated distribution
     mainPanel(
@@ -25,7 +25,7 @@ shinyUI(fluidPage(
             column(4, numericInput(inputId="sourceVoltage", label="Source voltage (volts)", value=12, min=0, step=0.5))
           ), 
           fluidRow(
-            column(4, numericInput(inputId="gearing", label = "Gearing (X:1)", value=2, min=1/100)),
+            column(4, numericInput(inputId="gearing", label = "Gearing (X:1)", value=1, min=1/100)),
             column(4, numericInput(inputId="wheelDiameter", label="Wheel diameter (inches)", value=4, min=1/100)),
             column(4, numericInput(inputId="robotResistance", label="Robot resistance (ohms)", value=0.02, min=0, step=0.01))
           ),
@@ -35,15 +35,22 @@ shinyUI(fluidPage(
             column(4, numericInput(inputId="resistiveTorque", label="Resistive torque at wheel (inch pounds)", value=0, min=0))
           ),
           fluidRow(
-            column(4, numericInput(inputId="deltaTime", label="Delta time (seconds)", value=0.001, min=0.0001, step=0.001)),
-            column(4, numericInput(inputId="linearSpeed", label="Projectile Speed (feet/second)", value=36, min=0)),
+            column(4, numericInput(inputId="deltaTime", label="Delta time (seconds)", value=0.01, min=0.0001, step=0.001)),
+            column(4, numericInput(inputId="setpoint", label="Flywheel Setpoint (RPM)", value=5000, min=0)),
             column(4, numericInput(inputId="projMass", label="Projectile Mass (pound mass)", value=0.3, min=0.01))
           ),
           fluidRow(
             column(4, numericInput(inputId="wheelMOI", label="Total Wheel Moment of Inertia (pound mass * inch squared)", value=2.5, min=0.01))
           )
         ),
-        tabPanel("Output", uiOutput("outputUI")),
+        tabPanel(title="Output", 
+          fluidRow(plotOutput("current")),
+          fluidRow(plotOutput("vel")),
+          fluidRow(plotOutput("accel")),
+          fluidRow(plotOutput("appVoltage")),
+          fluidRow(plotOutput("velVoltage")),
+          fluidRow(plotOutput("accelVoltage")),
+          fluidRow(plotOutput("sysVoltage"))),
         tabPanel("Euler", tableOutput("eulerTable"))
       )
     )
